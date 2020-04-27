@@ -1,0 +1,55 @@
+{
+  "name": "@msiviero/kv-storage",
+  "version": "0.0.1",
+  "main": "./dist/index.js",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/msiviero/kv-storage"
+  },
+  "keywords": [
+    "embedded",
+    "database",
+    "typescript",
+    "key value",
+    "nodejs"
+  ],
+  "description": "Simple pure node key value embedded database",
+  "scripts": {
+    "build": "npm run-script clean && tsc -p ./tsconfig.build.json",
+    "test": "jest",
+    "lint": "eslint . --ext ts",
+    "clean": "rimraf dist",
+    "deploy": "npm run-script lint && npm run-script build && npm publish --access public"
+  },
+  "jest": {
+    "globals": {
+      "tsConfigFile": "tsconfig.json"
+    },
+    "moduleFileExtensions": [
+      "ts",
+      "js"
+    ],
+    "transform": {
+      "^.+\\.(ts)$": "ts-jest"
+    },
+    "testMatch": [
+      "**/test/**/*.test.(ts)"
+    ],
+    "testEnvironment": "node"
+  },
+  "devDependencies": {
+    "@types/jest": "^25.2.1",
+    "@types/mock-fs": "^4.10.0",
+    "@types/node": "^13.13.2",
+    "@typescript-eslint/eslint-plugin": "^2.29.0",
+    "@typescript-eslint/parser": "^2.29.0",
+    "eslint": "^6.8.0",
+    "jest": "^25.4.0",
+    "mock-fs": "^4.12.0",
+    "rimraf": "^3.0.2",
+    "ts-jest": "^25.4.0",
+    "ts-node": "^8.9.0",
+    "typescript": "^3.8.3"
+  }
+}
