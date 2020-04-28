@@ -27,11 +27,24 @@ describe("Storage", () => {
 
     await underTest.put("k_a", Buffer.from("v_a"));
     await underTest.put("k_c", Buffer.from("v_c"));
-    await underTest.put("k_b", Buffer.from("v_b"));
 
-    expect(await underTest.get("k_c")).toEqual(Buffer.from("v_c"));
-    expect(await underTest.get("k_a")).toEqual(Buffer.from("v_a"));
-    expect(await underTest.get("k_b")).toEqual(Buffer.from("v_b"));
+    const resC = await underTest.get("k_c");
+    const resA = await underTest.get("k_a");
+    const resB = await underTest.get("k_b");
+
+    expect(resB).toBeUndefined();
+
+    if (resA === undefined || resC === undefined) {
+      throw new Error("undefined value");
+    }
+
+    expect(resC.data).toEqual(Buffer.from("v_c"));
+    expect(resC.meta.key).toEqual("k_c");
+    expect(resC.meta.timestamp).toBeLessThan(Date.now());
+
+    expect(resA.data).toEqual(Buffer.from("v_a"));
+    expect(resA.meta.key).toEqual("k_a");
+    expect(resA.meta.timestamp).toBeLessThan(Date.now());
 
     const keysFileStat = await fs.promises.stat("./fake-dir/keys.bin");
     const dbFileStat = await fs.promises.stat("./fake-dir/db.bin");

@@ -20,7 +20,7 @@ export interface Storage<T> {
 
   put(key: string, data: T): Promise<void>;
 
-  get(key: string): Promise<T | undefined>;
+  get(key: string): Promise<Readonly<Result<T>> | undefined>;
 }
 
 export class FileSystemStorage implements Storage<Buffer> {
@@ -67,7 +67,8 @@ export class FileSystemStorage implements Storage<Buffer> {
     }
   }
 
-  async get(key: string): Promise<Buffer | undefined> {
+  async get(key: string): Promise<Readonly<Result<Buffer>> | undefined> {
+
     try {
       const position = this.keys.getPosition(key);
       if (position === undefined) {
@@ -75,15 +76,16 @@ export class FileSystemStorage implements Storage<Buffer> {
       }
       const read = await this.logWriter.read(position);
       const meta = this.serializer.deserialize<Meta>(read.metadata);
-      const checksum = crc32c.calculate(read.data);
+      const crc32 = crc32c.calculate(read.data);
 
-
-      if (meta.checksum !== checksum) {
-        console.error(`Calculated checksum different from metadata [original=${meta.checksum} calculated=${checksum}]`);
+      if (meta.checksum !== crc32) {
+        console.error(`Calculated checksum different from metadata [original=${meta.checksum} calculated=${crc32}]`);
         return undefined;
       }
-
-      return read.data;
+      return {
+        data: read.data,
+        meta,
+      };
     } catch (e) {
       console.error(`Error during GET [key=${key}]`, e);
       throw (e);
