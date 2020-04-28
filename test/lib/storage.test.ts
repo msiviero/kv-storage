@@ -14,14 +14,14 @@ describe("Storage", () => {
     mockfs.restore();
   });
 
-  it("Should create dir if doesn not exist", async () => {
+  test("Should create dir if doesn not exist", async () => {
     await FileSystemStorage.create("./i-not-exists");
     const stats = await fs.promises.stat("./i-not-exists");
 
     expect(stats.isDirectory()).toBeTruthy();
   });
 
-  it("Should be able to write and read", async () => {
+  test("Should be able to write and read", async () => {
 
     const underTest = await FileSystemStorage.create("fake-dir");
 

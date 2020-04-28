@@ -2,14 +2,16 @@ import * as fs from "fs";
 
 export class Keys {
 
-  private readonly keysMap = new Map<string, number>();
+  private readonly keysMap: Map<string, number>;
 
   public static async create(filePath: string): Promise<Keys> {
     const content = await fs.promises.readFile(filePath, "utf8");
     return new Keys(filePath, JSON.parse(content));
   }
 
-  private constructor(private readonly filePath: string) { }
+  constructor(private readonly filePath: string, keys: [string, number][] = []) {
+    this.keysMap = new Map(keys);
+  }
 
   async update(key: string, startPosition: number): Promise<void> {
     const current = this.keysMap.get(key);
@@ -25,7 +27,7 @@ export class Keys {
     }
   }
 
-  async getPosition(key: string): Promise<number | undefined> {
+  getPosition(key: string): number | undefined {
     return this.keysMap.get(key);
   }
 
