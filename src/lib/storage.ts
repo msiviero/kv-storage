@@ -1,9 +1,9 @@
+import * as crc32c from "fast-crc32c";
 import * as fs from "fs";
 import * as path from "path";
 import { Keys } from "./keys";
 import { Log } from "./log";
-import { Serializer, JsonSerializer } from "./serializer";
-import * as crc32c from "fast-crc32c";
+import { MsgPackSerializer, Serializer } from "./serializer";
 
 export interface Meta {
   checksum: number;
@@ -23,12 +23,12 @@ export interface Storage<T> {
   get(key: string): Promise<Readonly<Result<T>> | undefined>;
 }
 
-export class FileSystemStorage implements Storage<Buffer> {
+export class FileSystemStorage<T> implements Storage<T> {
 
-  static async create(
+  static async create<T>(
     directory: string,
-    serializer: Serializer = new JsonSerializer(),
-  ): Promise<Storage<Buffer>> {
+    serializer: Serializer = new MsgPackSerializer(),
+  ): Promise<Storage<T>> {
 
     try {
       await fs.promises.mkdir(directory);
@@ -48,8 +48,9 @@ export class FileSystemStorage implements Storage<Buffer> {
     private readonly serializer: Serializer,
   ) { }
 
-  async put(key: string, buffer: Buffer): Promise<void> {
+  async put(key: string, object: T): Promise<void> {
     const startPosition = this.logWriter.position;
+    const buffer = this.serializer.serialize(object);
 
     const meta: Meta = {
       checksum: crc32c.calculate(buffer),
@@ -67,7 +68,7 @@ export class FileSystemStorage implements Storage<Buffer> {
     }
   }
 
-  async get(key: string): Promise<Readonly<Result<Buffer>> | undefined> {
+  async get(key: string): Promise<Readonly<Result<T>> | undefined> {
 
     try {
       const position = this.keys.getPosition(key);
@@ -83,7 +84,7 @@ export class FileSystemStorage implements Storage<Buffer> {
         return undefined;
       }
       return {
-        data: read.data,
+        data: this.serializer.deserialize(read.data),
         meta,
       };
     } catch (e) {

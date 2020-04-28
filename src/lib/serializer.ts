@@ -1,4 +1,4 @@
-
+import * as msgpack from "msgpack-lite";
 
 export interface Serializer {
   serialize<T>(object: T): Buffer;
@@ -13,5 +13,15 @@ export class JsonSerializer implements Serializer {
 
   deserialize<T>(data: Buffer): T {
     return JSON.parse(data.toString("utf8"));
+  }
+}
+
+export class MsgPackSerializer implements Serializer {
+
+  serialize<T>(object: T): Buffer {
+    return msgpack.encode(object);
+  }
+  deserialize<T>(data: Buffer): T {
+    return msgpack.decode(data);
   }
 }

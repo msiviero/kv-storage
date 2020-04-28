@@ -25,8 +25,16 @@ describe("Storage", () => {
 
     const underTest = await FileSystemStorage.create("fake-dir");
 
-    await underTest.put("k_a", Buffer.from("v_a"));
-    await underTest.put("k_c", Buffer.from("v_c"));
+    interface User {
+      id: number;
+      email: string;
+    }
+
+    const objectA: User = { id: 1, email: "user1@example.org" };
+    const objectB: User = { id: 1, email: "user1@example.org" };
+
+    await underTest.put("k_a", objectA);
+    await underTest.put("k_c", objectB);
 
     const resC = await underTest.get("k_c");
     const resA = await underTest.get("k_a");
@@ -38,11 +46,11 @@ describe("Storage", () => {
       throw new Error("undefined value");
     }
 
-    expect(resC.data).toEqual(Buffer.from("v_c"));
+    expect(resC.data).toEqual(objectB);
     expect(resC.meta.key).toEqual("k_c");
     expect(resC.meta.timestamp).toBeLessThan(Date.now());
 
-    expect(resA.data).toEqual(Buffer.from("v_a"));
+    expect(resA.data).toEqual(objectA);
     expect(resA.meta.key).toEqual("k_a");
     expect(resA.meta.timestamp).toBeLessThan(Date.now());
 

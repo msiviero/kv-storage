@@ -41,6 +41,7 @@
   "devDependencies": {
     "@types/jest": "^25.2.1",
     "@types/mock-fs": "^4.10.0",
+    "@types/msgpack-lite": "^0.1.7",
     "@types/node": "^13.13.2",
     "@typescript-eslint/eslint-plugin": "^2.29.0",
     "@typescript-eslint/parser": "^2.29.0",
@@ -53,6 +54,7 @@
     "typescript": "^3.8.3"
   },
   "dependencies": {
-    "fast-crc32c": "^2.0.0"
+    "fast-crc32c": "^2.0.0",
+    "msgpack-lite": "^0.1.26"
   }
 }
