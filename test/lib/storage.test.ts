@@ -54,8 +54,8 @@ describe("Storage", () => {
     expect(resA.meta.key).toEqual("k_a");
     expect(resA.meta.timestamp).toBeLessThan(Date.now());
 
-    const keysFileStat = await fs.promises.stat("./fake-dir/keys.bin");
-    const dbFileStat = await fs.promises.stat("./fake-dir/db.bin");
+    const keysFileStat = await fs.promises.stat("./fake-dir/keys");
+    const dbFileStat = await fs.promises.stat("./fake-dir/data");
 
     expect(keysFileStat.size).toBeGreaterThan(0);
     expect(dbFileStat.size).toBeGreaterThan(0);

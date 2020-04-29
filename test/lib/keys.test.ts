@@ -1,14 +1,11 @@
 import * as mockfs from "mock-fs";
 import { Keys } from "../../src/lib/keys";
-import * as fs from "fs";
 
 describe("Keys", () => {
 
   beforeAll(() => {
     mockfs({
-      "fake-dir": {
-        "prev-keys.bin": "[[\"k\",99]]",
-      }
+      "fake-dir": {}
     });
   });
 
@@ -18,22 +15,25 @@ describe("Keys", () => {
 
   test("should update and save keys", async () => {
 
-    const underTest = new Keys("./fake-dir/keys.bin", []);
+    const underTest = await Keys.create("./fake-dir/keys");
 
     await underTest.update("k", 99);
 
-    const fileContent = await fs.promises.readFile("./fake-dir/keys.bin", "utf8");
     expect(underTest.getPosition("k")).toBe(99);
-    expect(fileContent).toEqual("[[\"k\",99]]");
   });
 
   test("should rebuild previous keys state", async () => {
 
-    const underTest = await Keys.create("./fake-dir/prev-keys.bin");
+    const keys = await Keys.create("./fake-dir/prev-keys");
 
-    const fileContent = await fs.promises.readFile("./fake-dir/keys.bin", "utf8");
+    await keys.update("a", 1);
+    await keys.update("b", 2);
+    await keys.update("c", 3);
 
-    expect(underTest.getPosition("k")).toBe(99);
-    expect(fileContent).toEqual("[[\"k\",99]]");
+    await keys.close();
+
+    const underTest = await Keys.create("./fake-dir/prev-keys");
+
+    expect(underTest.size()).toBe(3);
   });
 });

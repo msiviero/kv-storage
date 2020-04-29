@@ -7,7 +7,7 @@ describe("LogWriter", () => {
   beforeAll(() => {
     mockfs({
       "fake-dir": {
-        "test-append-log.bin": "1234567890\n",
+        "test-append-log": "1234567890\n",
       }
     });
   });
@@ -17,7 +17,7 @@ describe("LogWriter", () => {
   });
 
   test("can append segment to log file and read it if offset is known", async () => {
-    const underTest = await Log.create("./fake-dir/append-segment.bin");
+    const underTest = await Log.create("./fake-dir/append-segment");
 
     const offset = await underTest.write(Buffer.from("xxx"), Buffer.from("m"));
     await underTest.write(Buffer.from("yyy"));
@@ -32,7 +32,7 @@ describe("LogWriter", () => {
   });
 
   test("test append log to prev file", async () => {
-    const underTest = await Log.create("./fake-dir/test-append-log.bin");
+    const underTest = await Log.create("./fake-dir/test-append-log");
     const initialOffset = (await underTest.stat()).size;
 
     expect(initialOffset).toBeGreaterThan(0);
@@ -43,5 +43,15 @@ describe("LogWriter", () => {
 
     expect(actual.data).toEqual(Buffer.from("xxx"));
     expect(actual.metadata).toEqual(Buffer.from("m"));
+  });
+
+  test("Should compact log after configured writes", async () => {
+    const underTest = await Log.create("./fake-dir/test-compaction", 10);
+
+    await underTest.write(Buffer.from("a"));
+    await underTest.write(Buffer.from("b"));
+    await underTest.write(Buffer.from("c"));
+
+    fail("not yet implemented");
   });
 });

@@ -1,12 +1,12 @@
-import * as crc32c from "fast-crc32c";
 import * as fs from "fs";
 import * as path from "path";
 import { Keys } from "./keys";
 import { Log } from "./log";
-import { MsgPackSerializer, Serializer } from "./serializer";
+import { JsonSerializer, Serializer } from "./serializer";
+import * as crypto from "crypto";
 
 export interface Meta {
-  checksum: number;
+  checksum: string;
   timestamp: number;
   key: string;
 }
@@ -27,7 +27,7 @@ export class FileSystemStorage<T> implements Storage<T> {
 
   static async create<T>(
     directory: string,
-    serializer: Serializer = new MsgPackSerializer(),
+    serializer: Serializer = new JsonSerializer(),
   ): Promise<Storage<T>> {
 
     try {
@@ -37,8 +37,8 @@ export class FileSystemStorage<T> implements Storage<T> {
         throw new Error(e);
       }
     }
-    const log = await Log.create(path.join(directory, "./db.bin"));
-    const keys = new Keys(path.join(directory, "./keys.bin"));
+    const log = await Log.create(path.join(directory, "./data"));
+    const keys = await Keys.create(path.join(directory, "./keys"));
     return new FileSystemStorage(log, keys, serializer);
   }
 
@@ -49,19 +49,17 @@ export class FileSystemStorage<T> implements Storage<T> {
   ) { }
 
   async put(key: string, object: T): Promise<void> {
-    const startPosition = this.logWriter.position;
     const buffer = this.serializer.serialize(object);
-
     const meta: Meta = {
-      checksum: crc32c.calculate(buffer),
+      checksum: this.checksum(buffer),
       timestamp: Date.now(),
       key,
     };
 
     const serializedMeta = this.serializer.serialize(meta);
     try {
-      await this.logWriter.write(buffer, serializedMeta);
-      await this.keys.update(key, startPosition);
+      const written = await this.logWriter.write(buffer, serializedMeta);
+      await this.keys.update(key, this.logWriter.position - written);
     } catch (e) {
       console.error(`Error during PUT [key=${key}, data=${buffer.toString("utf8")}]`, e);
       throw (e);
@@ -77,10 +75,10 @@ export class FileSystemStorage<T> implements Storage<T> {
       }
       const read = await this.logWriter.read(position);
       const meta = this.serializer.deserialize<Meta>(read.metadata);
-      const crc32 = crc32c.calculate(read.data);
+      const checksum = this.checksum(read.data);
 
-      if (meta.checksum !== crc32) {
-        console.error(`Calculated checksum different from metadata [original=${meta.checksum} calculated=${crc32}]`);
+      if (meta.checksum !== checksum) {
+        console.error(`Calculated checksum different from metadata [original=${meta.checksum} calculated=${checksum}]`);
         return undefined;
       }
       return {
@@ -91,5 +89,9 @@ export class FileSystemStorage<T> implements Storage<T> {
       console.error(`Error during GET [key=${key}]`, e);
       throw (e);
     }
+  }
+
+  private checksum(buffer: Buffer): string {
+    return crypto.createHash("md5").update(buffer).digest("hex");
   }
 }
