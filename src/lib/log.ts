@@ -11,17 +11,17 @@ export class Log {
   private constructor(
     public readonly path: string,
     private handler: fs.promises.FileHandle,
-    private _position: number,
+    private cursor: number,
   ) { }
 
   get position(): number {
-    return this._position;
+    return this.cursor;
   }
 
   async refresh(): Promise<void> {
     await this.handler.close();
     this.handler = await fs.promises.open(this.path, "as+");
-    this._position = (await this.handler.stat()).size;
+    this.cursor = (await this.handler.stat()).size;
   }
 
   close(): Promise<void> {
@@ -49,7 +49,7 @@ export class Log {
 
     try {
       const writeResult = await this.handler.write(buffer);
-      this._position += writeResult.bytesWritten;
+      this.cursor += writeResult.bytesWritten;
       return writeResult.bytesWritten;
     } catch (e) {
       console.error("Error while writing to filesystem log", e);
