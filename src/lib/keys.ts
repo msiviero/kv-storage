@@ -3,7 +3,7 @@ import { Log } from "./log";
 
 export class Keys {
 
-  private readonly keys: Map<string, number>;
+  private readonly _keys: Map<string, number>;
 
   public static async create(path: string): Promise<Keys> {
     const log = await Log.create(path);
@@ -17,27 +17,31 @@ export class Keys {
   }
 
   private constructor(private readonly log: Log, keys: [string, number][] = []) {
-    this.keys = new Map(keys);
+    this._keys = new Map(keys);
   }
 
   async update(key: string, position: number): Promise<void> {
 
-    this.keys.set(key, position);
+    this._keys.set(key, position);
     const positionBuffer = Buffer.alloc(4);
     positionBuffer.writeUInt32LE(position, 0);
     await this.log.write(Buffer.from(key), positionBuffer);
   }
 
   getPosition(key: string): number | undefined {
-    return this.keys.get(key);
+    return this._keys.get(key);
   }
 
   entries(): IterableIterator<[string, number]> {
-    return this.keys.entries();
+    return this._keys.entries();
+  }
+
+  keys(): IterableIterator<string> {
+    return this._keys.keys();
   }
 
   size(): number {
-    return this.keys.size;
+    return this._keys.size;
   }
 
   close(): Promise<void> {

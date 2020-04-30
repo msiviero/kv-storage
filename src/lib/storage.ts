@@ -37,8 +37,12 @@ export class FileSystemStorage<T> implements Storage<T> {
         throw new Error(e);
       }
     }
-    const log = await Log.create(path.join(directory, "./data"));
-    const keys = await Keys.create(path.join(directory, "./keys"));
+
+    const [log, keys]: [Log, Keys] = await Promise.all([
+      Log.create(path.join(directory, "./data")),
+      Keys.create(path.join(directory, "./keys")),
+    ]);
+
     return new FileSystemStorage(log, keys, serializer);
   }
 
