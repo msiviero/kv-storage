@@ -1,10 +1,9 @@
+import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
-import { Keys } from "./keys";
+import { compact } from "./compactor";
 import { Log } from "./log";
 import { JsonSerializer, Serializer } from "./serializer";
-import * as crypto from "crypto";
-import { compact } from "./compactor";
 
 export interface Meta {
   checksum: string;
@@ -33,48 +32,31 @@ export class FileSystemStorage<T> implements Storage<T> {
     serializer: Serializer = new JsonSerializer(),
   ): Promise<Storage<T>> {
 
-    try {
-      await fs.promises.mkdir(directory);
-    } catch (e) {
-      if (e.code !== "EEXIST") {
-        throw new Error(e);
-      }
-    }
-
-    const [log, keys]: [Log, Keys] = await Promise.all([
-      Log.create(path.join(directory, "./data")),
-      Keys.create(path.join(directory, "./keys")),
-    ]);
-
-    return new FileSystemStorage(log, keys, serializer);
+    await this.ensureDir(directory);
+    const log = await Log.create(path.join(directory, "./data"));
+    const storage = new FileSystemStorage<T>(log, new Map(), serializer);
+    await storage.rebuildKeys();
+    return storage;
   }
 
   private constructor(
     private readonly log: Log,
-    private readonly keys: Keys,
+    private keys: Map<string, number>,
     private readonly serializer: Serializer,
   ) { }
 
-  async compact(): Promise<number> {
-    const results = await Promise.all([
-      compact(this.log, (data) => this.serializer.deserialize<Meta>(data.metadata).key),
-      compact(this.keys.log, (data) => data.data.toString()),
-    ]);
-    return results.reduce((acc, x) => acc + x, 0);
-  }
-
   async put(key: string, object: T): Promise<void> {
     const buffer = this.serializer.serialize(object);
-    const meta: Meta = {
+    const serializedMeta = this.serializer.serialize<Meta>({
       checksum: this.checksum(buffer),
       timestamp: Date.now(),
       key,
-    };
+    });
 
-    const serializedMeta = this.serializer.serialize(meta);
     try {
-      const written = await this.log.write(buffer, serializedMeta);
-      await this.keys.update(key, this.log.position - written);
+      const offset = this.log.position;
+      await this.log.write(buffer, serializedMeta);
+      this.keys.set(key, offset);
     } catch (e) {
       console.error(`Error during PUT [key=${key}, data=${buffer.toString("utf8")}]`, e);
       throw (e);
@@ -84,7 +66,7 @@ export class FileSystemStorage<T> implements Storage<T> {
   async get(key: string): Promise<Readonly<Result<T>> | undefined> {
 
     try {
-      const position = this.keys.getPosition(key);
+      const position = this.keys.get(key);
       if (position === undefined) {
         return undefined;
       }
@@ -104,6 +86,38 @@ export class FileSystemStorage<T> implements Storage<T> {
       console.error(`Error during GET [key=${key}]`, e);
       throw (e);
     }
+  }
+
+  async compact(): Promise<number> {
+    const ms = await compact(this.log, (data) => this.serializer.deserialize<Meta>(data.metadata).key);
+    await this.rebuildKeys();
+    return ms;
+  }
+
+  private static async ensureDir(directory: string): Promise<void> {
+    try {
+      await fs.promises.mkdir(directory);
+    } catch (e) {
+      if (e.code !== "EEXIST") {
+        throw new Error(e);
+      }
+    }
+  }
+
+  private async rebuildKeys(): Promise<void> {
+    const map = new Map<string, number>();
+
+    let cursor = 0;
+    const stat = await this.log.stat();
+
+    while (cursor < stat.size) {
+      const segment = await this.log.read(cursor);
+      const meta = this.serializer.deserialize<Meta>(segment.metadata);
+      map.set(meta.key, cursor);
+      cursor += segment.bytesRead;
+    }
+
+    this.keys = map;
   }
 
   private checksum(buffer: Buffer): string {

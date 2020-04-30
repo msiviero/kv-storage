@@ -21,6 +21,7 @@ export class Log {
   async refresh(): Promise<void> {
     await this.handler.close();
     this.handler = await fs.promises.open(this.path, "as+");
+    this._position = (await this.handler.stat()).size;
   }
 
   close(): Promise<void> {

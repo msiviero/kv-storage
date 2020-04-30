@@ -1,6 +1,7 @@
-import { FileSystemStorage } from "../../src/lib/storage";
-import * as mockfs from "mock-fs";
 import * as fs from "fs";
+import * as mockfs from "mock-fs";
+import { FileSystemStorage } from "../../src/lib/storage";
+
 
 describe("Storage", () => {
 
@@ -12,13 +13,6 @@ describe("Storage", () => {
 
   afterAll(() => {
     mockfs.restore();
-  });
-
-  test("Should create dir if doesn not exist", async () => {
-    await FileSystemStorage.create("./i-not-exists");
-    const stats = await fs.promises.stat("./i-not-exists");
-
-    expect(stats.isDirectory()).toBeTruthy();
   });
 
   test("Should be able to write and read", async () => {
@@ -54,10 +48,32 @@ describe("Storage", () => {
     expect(resA.meta.key).toEqual("k_a");
     expect(resA.meta.timestamp).toBeLessThan(Date.now());
 
-    const keysFileStat = await fs.promises.stat("./fake-dir/keys");
     const dbFileStat = await fs.promises.stat("./fake-dir/data");
 
-    expect(keysFileStat.size).toBeGreaterThan(0);
     expect(dbFileStat.size).toBeGreaterThan(0);
+  });
+
+  test("Should create dir if does not exist", async () => {
+    await FileSystemStorage.create("./i-not-exists");
+    const stats = await fs.promises.stat("./i-not-exists");
+
+    expect(stats.isDirectory()).toBeTruthy();
+  });
+
+  test("Should keep consistency while compacting logs", async () => {
+    const underTest = await FileSystemStorage.create<string>("./log-compact-test");
+
+    await underTest.put("k1", "v1.0");
+    await underTest.put("k2", "v2.0");
+    await underTest.put("k2", "v2.1");
+    await underTest.put("k1", "v1.1");
+
+    await underTest.compact();
+
+    await underTest.put("k3", "v3.0");
+
+    expect((await underTest.get("k1"))?.data).toEqual("v1.1");
+    expect((await underTest.get("k2"))?.data).toEqual("v2.1");
+    expect((await underTest.get("k3"))?.data).toEqual("v3.0");
   });
 });

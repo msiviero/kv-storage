@@ -1,10 +1,6 @@
 import { Log, Data } from "./log";
 import * as fs from "fs";
 
-/*
-- Switch the logs
-- Delete old
-*/
 export type KeySupplier<T = unknown> = (segment: Data) => T;
 
 export const compact = async <T>(log: Log, keySupplier: KeySupplier<T>): Promise<number> => {
