@@ -16,7 +16,10 @@ export class Keys {
     return new Keys(log, Object.entries(keys));
   }
 
-  private constructor(private readonly log: Log, keys: [string, number][] = []) {
+  private constructor(
+    public readonly log: Log,
+    keys: [string, number][] = [],
+  ) {
     this._keys = new Map(keys);
   }
 

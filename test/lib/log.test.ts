@@ -2,7 +2,7 @@ import * as mockfs from "mock-fs";
 import { Log } from "../../src/lib/log";
 
 
-describe("LogWriter", () => {
+describe("Log", () => {
 
   beforeAll(() => {
     mockfs({

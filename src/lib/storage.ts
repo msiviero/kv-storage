@@ -4,6 +4,7 @@ import { Keys } from "./keys";
 import { Log } from "./log";
 import { JsonSerializer, Serializer } from "./serializer";
 import * as crypto from "crypto";
+import { compact } from "./compactor";
 
 export interface Meta {
   checksum: string;
@@ -21,6 +22,8 @@ export interface Storage<T> {
   put(key: string, data: T): Promise<void>;
 
   get(key: string): Promise<Readonly<Result<T>> | undefined>;
+
+  compact(): Promise<number>;
 }
 
 export class FileSystemStorage<T> implements Storage<T> {
@@ -47,10 +50,18 @@ export class FileSystemStorage<T> implements Storage<T> {
   }
 
   private constructor(
-    private readonly logWriter: Log,
+    private readonly log: Log,
     private readonly keys: Keys,
     private readonly serializer: Serializer,
   ) { }
+
+  async compact(): Promise<number> {
+    const results = await Promise.all([
+      compact(this.log, (data) => this.serializer.deserialize<Meta>(data.metadata).key),
+      compact(this.keys.log, (data) => data.data.toString()),
+    ]);
+    return results.reduce((acc, x) => acc + x, 0);
+  }
 
   async put(key: string, object: T): Promise<void> {
     const buffer = this.serializer.serialize(object);
@@ -62,8 +73,8 @@ export class FileSystemStorage<T> implements Storage<T> {
 
     const serializedMeta = this.serializer.serialize(meta);
     try {
-      const written = await this.logWriter.write(buffer, serializedMeta);
-      await this.keys.update(key, this.logWriter.position - written);
+      const written = await this.log.write(buffer, serializedMeta);
+      await this.keys.update(key, this.log.position - written);
     } catch (e) {
       console.error(`Error during PUT [key=${key}, data=${buffer.toString("utf8")}]`, e);
       throw (e);
@@ -77,7 +88,7 @@ export class FileSystemStorage<T> implements Storage<T> {
       if (position === undefined) {
         return undefined;
       }
-      const read = await this.logWriter.read(position);
+      const read = await this.log.read(position);
       const meta = this.serializer.deserialize<Meta>(read.metadata);
       const checksum = this.checksum(read.data);
 
