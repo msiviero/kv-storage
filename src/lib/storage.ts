@@ -4,6 +4,7 @@ import * as path from "path";
 import { compact } from "./compactor";
 import { Log } from "./log";
 import { JsonSerializer, Serializer } from "./serializer";
+import { Readable } from "stream";
 
 export interface Meta {
   checksum: string;
@@ -25,7 +26,42 @@ export interface Storage<T> {
   compact(): Promise<number>;
 
   iterator(): AsyncGenerator<Result<T>, void, unknown>;
+
+  stream(): StorageStream<T>;
 }
+
+
+export class StorageStream<T> extends Readable {
+
+  private cursor = 0;
+  private fileSize?: number;
+
+  constructor(
+    private readonly log: Log,
+    private readonly serializer: Serializer,
+  ) {
+    super({ objectMode: true });
+  }
+
+  public async _read(): Promise<void> {
+    if (this.fileSize === undefined) {
+      this.fileSize = (await this.log.stat()).size;
+    }
+    if (this.cursor < this.fileSize) {
+      const segment = await this.log.read(this.cursor);
+      const meta = this.serializer.deserialize<Meta>(segment.metadata);
+      const result: Result<T> = {
+        meta,
+        data: this.serializer.deserialize<T>(segment.data),
+      };
+      this.cursor += segment.bytesRead;
+      this.push(result);
+    } else {
+      this.push(null);
+    }
+  }
+}
+
 
 export class FileSystemStorage<T> implements Storage<T> {
 
@@ -104,6 +140,10 @@ export class FileSystemStorage<T> implements Storage<T> {
         throw new Error(e);
       }
     }
+  }
+
+  stream(): StorageStream<T> {
+    return new StorageStream(this.log, this.serializer);
   }
 
   async * iterator(): AsyncGenerator<Result<T>, void, unknown> {

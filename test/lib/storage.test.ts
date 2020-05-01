@@ -99,4 +99,31 @@ describe("Storage", () => {
       ["k1", "v1.1"],
     ]);
   });
+
+  test("Should stream results", async (done) => {
+
+    const underTest = await FileSystemStorage.create<string>("./stream-test");
+
+    await underTest.put("k1", "v1.0");
+    await underTest.put("k2", "v2.0");
+    await underTest.put("k2", "v2.1");
+    await underTest.put("k1", "v1.1");
+
+    const results: Result<string>[] = [];
+
+    underTest
+      .stream()
+      .on("data", (result: Result<string>) => {
+        results.push(result);
+      })
+      .on("end", () => {
+        expect(results.map(r => [r.meta.key, r.data])).toEqual([
+          ["k1", "v1.0"],
+          ["k2", "v2.0"],
+          ["k2", "v2.1"],
+          ["k1", "v1.1"],
+        ]);
+        done();
+      });
+  });
 });
