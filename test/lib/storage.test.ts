@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as mockfs from "mock-fs";
-import { FileSystemStorage } from "../../src/lib/storage";
+import { FileSystemStorage, Result } from "../../src/lib/storage";
 
 
 describe("Storage", () => {
@@ -75,5 +75,28 @@ describe("Storage", () => {
     expect((await underTest.get("k1"))?.data).toEqual("v1.1");
     expect((await underTest.get("k2"))?.data).toEqual("v2.1");
     expect((await underTest.get("k3"))?.data).toEqual("v3.0");
+  });
+
+  test("Should have an iterator for the results", async () => {
+
+    const underTest = await FileSystemStorage.create<string>("./iterator-test");
+
+    await underTest.put("k1", "v1.0");
+    await underTest.put("k2", "v2.0");
+    await underTest.put("k2", "v2.1");
+    await underTest.put("k1", "v1.1");
+
+    const results: Result<string>[] = [];
+
+    for await (const it of underTest.iterator()) {
+      results.push(it);
+    }
+
+    expect(results.map(r => [r.meta.key, r.data])).toEqual([
+      ["k1", "v1.0"],
+      ["k2", "v2.0"],
+      ["k2", "v2.1"],
+      ["k1", "v1.1"],
+    ]);
   });
 });

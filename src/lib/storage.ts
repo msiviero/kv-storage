@@ -23,6 +23,8 @@ export interface Storage<T> {
   get(key: string): Promise<Readonly<Result<T>> | undefined>;
 
   compact(): Promise<number>;
+
+  iterator(): AsyncGenerator<Result<T>, void, unknown>;
 }
 
 export class FileSystemStorage<T> implements Storage<T> {
@@ -101,6 +103,22 @@ export class FileSystemStorage<T> implements Storage<T> {
       if (e.code !== "EEXIST") {
         throw new Error(e);
       }
+    }
+  }
+
+  async * iterator(): AsyncGenerator<Result<T>, void, unknown> {
+    let cursor = 0;
+    const stat = await this.log.stat();
+    while (cursor < stat.size) {
+      const segment = await this.log.read(cursor);
+      const meta = this.serializer.deserialize<Meta>(segment.metadata);
+      const result: Result<T> = {
+        meta,
+        data: this.serializer.deserialize<T>(segment.data),
+      };
+
+      yield result;
+      cursor += segment.bytesRead;
     }
   }
 

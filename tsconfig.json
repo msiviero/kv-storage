@@ -25,6 +25,9 @@
         "types/*"
       ]
     },
+    "lib": [
+      "ES2019"
+    ],
     "allowSyntheticDefaultImports": false,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
