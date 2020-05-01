@@ -93,10 +93,8 @@ describe("Storage", () => {
     }
 
     expect(results.map(r => [r.meta.key, r.data])).toEqual([
-      ["k1", "v1.0"],
-      ["k2", "v2.0"],
-      ["k2", "v2.1"],
       ["k1", "v1.1"],
+      ["k2", "v2.1"],
     ]);
   });
 
@@ -113,15 +111,11 @@ describe("Storage", () => {
 
     underTest
       .stream()
-      .on("data", (result: Result<string>) => {
-        results.push(result);
-      })
+      .on("data", (result: Result<string>) => results.push(result))
       .on("end", () => {
         expect(results.map(r => [r.meta.key, r.data])).toEqual([
-          ["k1", "v1.0"],
-          ["k2", "v2.0"],
-          ["k2", "v2.1"],
           ["k1", "v1.1"],
+          ["k2", "v2.1"],
         ]);
         done();
       });

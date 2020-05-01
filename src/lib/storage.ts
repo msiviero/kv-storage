@@ -1,10 +1,10 @@
 import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
+import { Readable } from "stream";
 import { compact } from "./compactor";
 import { Log } from "./log";
 import { JsonSerializer, Serializer } from "./serializer";
-import { Readable } from "stream";
 
 export interface Meta {
   checksum: string;
@@ -19,6 +19,8 @@ export interface Result<T> {
 
 export interface Storage<T> {
 
+  keys(): string[];
+
   put(key: string, data: T): Promise<void>;
 
   get(key: string): Promise<Readonly<Result<T>> | undefined>;
@@ -27,41 +29,8 @@ export interface Storage<T> {
 
   iterator(): AsyncGenerator<Result<T>, void, unknown>;
 
-  stream(): StorageStream<T>;
+  stream(): Readable;
 }
-
-
-export class StorageStream<T> extends Readable {
-
-  private cursor = 0;
-  private fileSize?: number;
-
-  constructor(
-    private readonly log: Log,
-    private readonly serializer: Serializer,
-  ) {
-    super({ objectMode: true });
-  }
-
-  public async _read(): Promise<void> {
-    if (this.fileSize === undefined) {
-      this.fileSize = (await this.log.stat()).size;
-    }
-    if (this.cursor < this.fileSize) {
-      const segment = await this.log.read(this.cursor);
-      const meta = this.serializer.deserialize<Meta>(segment.metadata);
-      const result: Result<T> = {
-        meta,
-        data: this.serializer.deserialize<T>(segment.data),
-      };
-      this.cursor += segment.bytesRead;
-      this.push(result);
-    } else {
-      this.push(null);
-    }
-  }
-}
-
 
 export class FileSystemStorage<T> implements Storage<T> {
 
@@ -79,9 +48,13 @@ export class FileSystemStorage<T> implements Storage<T> {
 
   private constructor(
     private readonly log: Log,
-    private keys: Map<string, number>,
+    private keyMap: Map<string, number>,
     private readonly serializer: Serializer,
   ) { }
+
+  keys(): string[] {
+    return Array.from(this.keyMap.keys());
+  }
 
   async put(key: string, object: T): Promise<void> {
     const buffer = this.serializer.serialize(object);
@@ -94,7 +67,7 @@ export class FileSystemStorage<T> implements Storage<T> {
     try {
       const offset = this.log.position;
       await this.log.write(buffer, serializedMeta);
-      this.keys.set(key, offset);
+      this.keyMap.set(key, offset);
     } catch (e) {
       console.error(`Error during PUT [key=${key}, data=${buffer.toString("utf8")}]`, e);
       throw (e);
@@ -102,9 +75,8 @@ export class FileSystemStorage<T> implements Storage<T> {
   }
 
   async get(key: string): Promise<Readonly<Result<T>> | undefined> {
-
     try {
-      const position = this.keys.get(key);
+      const position = this.keyMap.get(key);
       if (position === undefined) {
         return undefined;
       }
@@ -142,23 +114,16 @@ export class FileSystemStorage<T> implements Storage<T> {
     }
   }
 
-  stream(): StorageStream<T> {
-    return new StorageStream(this.log, this.serializer);
+  stream(): Readable {
+    return Readable.from(this.iterator());
   }
 
   async * iterator(): AsyncGenerator<Result<T>, void, unknown> {
-    let cursor = 0;
-    const stat = await this.log.stat();
-    while (cursor < stat.size) {
-      const segment = await this.log.read(cursor);
-      const meta = this.serializer.deserialize<Meta>(segment.metadata);
-      const result: Result<T> = {
-        meta,
-        data: this.serializer.deserialize<T>(segment.data),
-      };
-
-      yield result;
-      cursor += segment.bytesRead;
+    for (const key of this.keyMap.keys()) {
+      const result = await this.get(key);
+      if (result) {
+        yield result;
+      }
     }
   }
 
@@ -175,7 +140,7 @@ export class FileSystemStorage<T> implements Storage<T> {
       cursor += segment.bytesRead;
     }
 
-    this.keys = map;
+    this.keyMap = map;
   }
 
   private checksum(buffer: Buffer): string {
